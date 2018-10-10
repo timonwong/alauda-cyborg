@@ -1,0 +1,512 @@
+
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+		<style>
+			body {
+				background: black;
+				color: rgb(80, 80, 80);
+			}
+			body, pre, #legend span {
+				font-family: Menlo, monospace;
+				font-weight: bold;
+			}
+			#topbar {
+				background: black;
+				position: fixed;
+				top: 0; left: 0; right: 0;
+				height: 42px;
+				border-bottom: 1px solid rgb(80, 80, 80);
+			}
+			#content {
+				margin-top: 50px;
+			}
+			#nav, #legend {
+				float: left;
+				margin-left: 10px;
+			}
+			#legend {
+				margin-top: 12px;
+			}
+			#nav {
+				margin-top: 10px;
+			}
+			#legend span {
+				margin: 0 5px;
+			}
+			.cov0 { color: rgb(192, 0, 0) }
+.cov1 { color: rgb(128, 128, 128) }
+.cov2 { color: rgb(116, 140, 131) }
+.cov3 { color: rgb(104, 152, 134) }
+.cov4 { color: rgb(92, 164, 137) }
+.cov5 { color: rgb(80, 176, 140) }
+.cov6 { color: rgb(68, 188, 143) }
+.cov7 { color: rgb(56, 200, 146) }
+.cov8 { color: rgb(44, 212, 149) }
+.cov9 { color: rgb(32, 224, 152) }
+.cov10 { color: rgb(20, 236, 155) }
+
+		</style>
+	</head>
+	<body>
+		<div id="topbar">
+			<div id="nav">
+				<select id="files">
+				
+				<option value="file0">github.com/alauda/cyborg/pkg/client/client.go (15.4%)</option>
+				
+				<option value="file1">github.com/alauda/cyborg/pkg/client/discovery.go (39.4%)</option>
+				
+				</select>
+			</div>
+			<div id="legend">
+				<span>not tracked</span>
+			
+				<span class="cov0">not covered</span>
+				<span class="cov8">covered</span>
+			
+			</div>
+		</div>
+		<div id="content">
+		
+		<pre class="file" id="file0" style="display: none">package client
+
+import (
+        "k8s.io/client-go/kubernetes"
+        "k8s.io/client-go/dynamic"
+        "k8s.io/client-go/rest"
+        "k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+        "k8s.io/apimachinery/pkg/runtime/schema"
+        metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+        "k8s.io/apimachinery/pkg/types"
+)
+
+type KubeClient struct {
+        cluster    string
+        config     *rest.Config
+        kc         kubernetes.Interface
+        clientPool dynamic.ClientPool
+}
+
+func NewKubeClient(cfg *rest.Config, cluster string) (*KubeClient, error) <span class="cov8" title="1">{
+        kc, err := kubernetes.NewForConfig(cfg)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+
+        <span class="cov8" title="1">c := KubeClient{
+                cluster:    cluster,
+                config:     cfg,
+                kc:         kc,
+                clientPool: dynamic.NewDynamicClientPool(cfg),
+        }
+        if err := c.syncGroupVersion(false); err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+        <span class="cov8" title="1">if err := c.syncKindResourceMap(false); err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+        <span class="cov8" title="1">return &amp;c, nil</span>
+}
+
+// getClient get client from unstructured
+func (c *KubeClient) getClient(resource *unstructured.Unstructured) (dynamic.Interface, error) <span class="cov0" title="0">{
+        return c.getClientByGVK(resource.GroupVersionKind())
+}</span>
+
+func (c *KubeClient) getClientByGVK(gvk schema.GroupVersionKind) (dynamic.Interface, error) <span class="cov0" title="0">{
+        return c.clientPool.ClientForGroupVersionKind(gvk)
+}</span>
+
+func (c *KubeClient) deleteResource(resource *unstructured.Unstructured) error <span class="cov0" title="0">{
+        client, err := c.getClient(resource)
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+
+        <span class="cov0" title="0">apiResource, err := c.GetApiResourceByKind(resource.GetKind())
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+
+        <span class="cov0" title="0">return client.Resource(apiResource, resource.GetNamespace()).Delete(resource.GetName(), &amp;metav1.DeleteOptions{})</span>
+
+}
+
+func (c *KubeClient) createResource(resource *unstructured.Unstructured) (*unstructured.Unstructured, error) <span class="cov0" title="0">{
+        client, err := c.getClient(resource)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+
+        <span class="cov0" title="0">apiResource, err := c.GetApiResourceByKind(resource.GetKind())
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+
+        <span class="cov0" title="0">return client.Resource(apiResource, resource.GetNamespace()).Create(resource)</span>
+
+}
+
+func (c *KubeClient) updateResource(resource *unstructured.Unstructured) (*unstructured.Unstructured, error) <span class="cov0" title="0">{
+        client, err := c.getClient(resource)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+
+        <span class="cov0" title="0">apiResource, err := c.GetApiResourceByKind(resource.GetKind())
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+
+        <span class="cov0" title="0">return client.Resource(apiResource, resource.GetNamespace()).Update(resource)</span>
+}
+
+func (c *KubeClient) patchResource(resource *unstructured.Unstructured, body []byte, jt types.PatchType) (*unstructured.Unstructured, error) <span class="cov0" title="0">{
+        client, err := c.getClient(resource)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+
+        <span class="cov0" title="0">apiResource, err := c.GetApiResourceByKind(resource.GetKind())
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+
+        <span class="cov0" title="0">return client.Resource(apiResource, resource.GetNamespace()).Patch(resource.GetName(), jt, body)</span>
+}
+</pre>
+		
+		<pre class="file" id="file1" style="display: none">package client
+
+import (
+        "fmt"
+        "strings"
+        "sync"
+
+        metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+        "k8s.io/apimachinery/pkg/runtime/schema"
+        "k8s.io/apimachinery/pkg/runtime/serializer"
+        "k8s.io/client-go/kubernetes/scheme"
+        "k8s.io/client-go/rest"
+        "github.com/golang/glog"
+)
+
+// APIGroupMap indexed by group
+type APIGroupMap map[string]metav1.APIGroup
+
+// APIResourceVersionMap defines an APIResource map type using apiVersion as key.
+type APIResourceVersionMap map[string]metav1.APIResource
+
+// APIResourceMap is api resources indexed by resource kind(Deployment,Service....)
+type APIResourceMap map[string]APIResourceVersionMap
+
+type GroupVersionMap struct {
+        M map[string]APIGroupMap
+        sync.RWMutex
+}
+
+type KindResourceMap struct {
+        // index by cluster
+        M map[string]APIResourceMap
+        // API resource map indexed by resource type name
+        MByName map[string]APIResourceMap
+        sync.RWMutex
+}
+
+var AllGroupVersion = GroupVersionMap{
+        M: make(map[string]APIGroupMap),
+}
+
+var AllKindResourceMap = KindResourceMap{
+        M:       make(map[string]APIResourceMap),
+        MByName: make(map[string]APIResourceMap),
+}
+
+// AllAPIResourceMap stores all api resource lists of k8s clusters.
+var AllAPIResourceMap = make(map[string][]*metav1.APIResourceList)
+
+type ErrorResourceKindNotFound struct {
+        kind string
+}
+
+func (e ErrorResourceKindNotFound) Error() string <span class="cov0" title="0">{
+        return fmt.Sprintf("resource kind '%s' not found", e.kind)
+}</span>
+
+func IsResourceKindNotFound(err error) bool <span class="cov0" title="0">{
+        _, ok := err.(ErrorResourceKindNotFound)
+        return ok
+}</span>
+
+// GetResourceList gets api resource list of the cluster.
+func (c *KubeClient) GetResourceList() ([]*metav1.APIResourceList, error) <span class="cov0" title="0">{
+        rl, ok := AllAPIResourceMap[c.cluster]
+        if ok </span><span class="cov0" title="0">{
+                return rl, nil
+        }</span>
+
+        <span class="cov0" title="0">if err := c.syncKindResourceMap(true); err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+
+        <span class="cov0" title="0">rl, ok = AllAPIResourceMap[c.cluster]
+        if ok </span><span class="cov0" title="0">{
+                return rl, nil
+        }</span>
+        <span class="cov0" title="0">return nil, fmt.Errorf("find no resource list for %s", c.cluster)</span>
+}
+
+// GetResourceByKind gets the name of resource type by the resource kind.
+// eg: Deployment -&gt; deployments
+func (c *KubeClient) GetResourceByKind(kind string) (string, error) <span class="cov0" title="0">{
+        r, err := c.GetApiResourceByKind(kind)
+        if err != nil </span><span class="cov0" title="0">{
+                return "", ErrorResourceKindNotFound{kind: kind}
+        }</span>
+        <span class="cov0" title="0">return r.Name, nil</span>
+}
+
+// GetResourceByKind gets the APIResource by the resource kind.
+func (c *KubeClient) GetApiResourceByKind(kind string) (*metav1.APIResource, error) <span class="cov0" title="0">{
+        getAPIResource := func() (*metav1.APIResource, error) </span><span class="cov0" title="0">{
+                data, ok := AllKindResourceMap.M[c.cluster]
+                if !ok </span><span class="cov0" title="0">{
+                        return nil, fmt.Errorf("api resource map cache not init for cluster: %s", c.cluster)
+                }</span>
+
+                <span class="cov0" title="0">r, ok := data[kind]
+                if ok </span><span class="cov0" title="0">{
+                        for _, v := range r </span><span class="cov0" title="0">{
+                                return &amp;v, nil
+                        }</span>
+                }
+                <span class="cov0" title="0">return nil, fmt.Errorf("find apiResource for kind error: %s %s", c.cluster, kind)</span>
+        }
+
+        <span class="cov0" title="0">r, err := getAPIResource()
+        if err == nil </span><span class="cov0" title="0">{
+                return r, nil
+        }</span>
+
+        <span class="cov0" title="0">if err := c.syncKindResourceMap(true); err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+
+        <span class="cov0" title="0">return getAPIResource()</span>
+}
+
+// GetApiResourceByName gets APIResource by the resource type name and
+// the preferred api version. If the preferredVersion not exist, the first
+// available version will be returned.
+func (c *KubeClient) GetApiResourceByName(name string, preferredVersion string) (*metav1.APIResource, error) <span class="cov0" title="0">{
+        getAPIResource := func() (*metav1.APIResource, error) </span><span class="cov0" title="0">{
+                data, ok := AllKindResourceMap.MByName[c.cluster]
+                if !ok </span><span class="cov0" title="0">{
+                        return nil, fmt.Errorf("api resource map cache not init for cluster: %s", c.cluster)
+                }</span>
+
+                <span class="cov0" title="0">r, ok := data[name]
+                if ok </span><span class="cov0" title="0">{
+                        v, exist := r[preferredVersion]
+                        if exist </span><span class="cov0" title="0">{
+                                return &amp;v, nil
+                        }</span>
+                        <span class="cov0" title="0">for _, v = range r </span><span class="cov0" title="0">{
+                                return &amp;v, nil
+                        }</span>
+                }
+                <span class="cov0" title="0">return nil, fmt.Errorf("find apiResource for name error: %s %s", c.cluster, name)</span>
+        }
+
+        <span class="cov0" title="0">r, err := getAPIResource()
+        if err == nil </span><span class="cov0" title="0">{
+                return r, nil
+        }</span>
+
+        <span class="cov0" title="0">if err := c.syncKindResourceMap(true); err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+
+        <span class="cov0" title="0">return getAPIResource()</span>
+}
+
+// GetVersionByGroup gets the preferred version of a group.
+func (c *KubeClient) GetVersionByGroup(group string) (string, error) <span class="cov8" title="1">{
+        data, ok := AllGroupVersion.M[c.cluster]
+        if !ok </span><span class="cov0" title="0">{
+                return "", fmt.Errorf("group verion map cache not init for cluster: %s", c.cluster)
+        }</span>
+
+        <span class="cov8" title="1">grp, ok := data[group]
+        if ok </span><span class="cov8" title="1">{
+                return grp.PreferredVersion.Version, nil
+        }</span><span class="cov0" title="0"> else {
+                if err := c.syncGroupVersion(true); err != nil </span><span class="cov0" title="0">{
+                        return "", err
+                }</span>
+        }
+
+        <span class="cov0" title="0">grp, ok = data[group]
+        if ok </span><span class="cov0" title="0">{
+                return grp.PreferredVersion.Version, nil
+        }</span>
+        <span class="cov0" title="0">return "", fmt.Errorf("find version for group error: %s %s", c.cluster, group)</span>
+
+}
+
+// GetGroupVersionByName gets the group version of a resource by it's type name and
+// the preferred api version.
+func (c *KubeClient) GetGroupVersionByName(name string, preferredVersion string) (schema.GroupVersion, error) <span class="cov0" title="0">{
+        apiRes, err := c.GetApiResourceByName(name, preferredVersion)
+        if err != nil </span><span class="cov0" title="0">{
+                return schema.GroupVersion{}, err
+        }</span>
+
+        <span class="cov0" title="0">return schema.GroupVersion{
+                Group:   apiRes.Group,
+                Version: apiRes.Version,
+        }, nil</span>
+}
+
+// syncGroupVersion happens in client init and new resource added
+// if force == false, skip sync if already have data in the map
+func (c *KubeClient) syncGroupVersion(force bool) error <span class="cov8" title="1">{
+        if !force </span><span class="cov8" title="1">{
+                _, ok := AllGroupVersion.M[c.cluster]
+                if ok </span><span class="cov0" title="0">{
+                        return nil
+                }</span>
+        }
+        <span class="cov8" title="1">glog.Infof("force resync group version info for cluster: %s", c.cluster)
+        groups, err := c.kc.Discovery().ServerGroups()
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+
+        <span class="cov8" title="1">m := make(APIGroupMap)
+
+        for _, item := range groups.Groups </span><span class="cov8" title="1">{
+                m[item.Name] = item
+        }</span>
+        <span class="cov8" title="1">glog.Infof("resync group version info %+v for cluster: %s", m, c.cluster)
+        AllGroupVersion.Lock()
+        AllGroupVersion.M[c.cluster] = m
+        AllGroupVersion.Unlock()
+
+        return nil</span>
+}
+
+// syncKindResourceMap happens in client init and new resource added
+// if force == false, skip sync if already have data in the map
+func (c *KubeClient) syncKindResourceMap(force bool) error <span class="cov8" title="1">{
+        if !force </span><span class="cov8" title="1">{
+                _, ok := AllKindResourceMap.M[c.cluster]
+                if ok </span><span class="cov0" title="0">{
+                        return nil
+                }</span>
+        }
+        <span class="cov8" title="1">glog.Infof("force resync api resources for cluster: %s", c.cluster)
+        serverResourceList, err := c.kc.Discovery().ServerResources()
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+        <span class="cov8" title="1">m := make(APIResourceMap)
+        mByName := make(APIResourceMap)
+
+        for _, rl := range serverResourceList </span><span class="cov8" title="1">{
+                gv, err := schema.ParseGroupVersion(rl.GroupVersion)
+                if err != nil </span><span class="cov0" title="0">{
+                        glog.Errorf("parse group version for %s error: %s", rl.GroupVersion, err)
+                        continue</span>
+                }
+                <span class="cov8" title="1">for _, r := range rl.APIResources </span><span class="cov8" title="1">{
+                        if canResourceList(r) </span><span class="cov8" title="1">{
+                                if m[r.Kind] == nil </span><span class="cov8" title="1">{
+                                        m[r.Kind] = make(APIResourceVersionMap)
+                                }</span>
+                                // originally empty
+                                <span class="cov8" title="1">r.Group = gv.Group
+                                r.Version = gv.Version
+
+                                m[r.Kind][gv.String()] = r
+                                mByName[r.Name] = m[r.Kind]</span>
+                        }
+
+                }
+        }
+
+        <span class="cov8" title="1">AllKindResourceMap.Lock()
+        AllAPIResourceMap[c.cluster] = serverResourceList
+        AllKindResourceMap.M[c.cluster] = m
+        AllKindResourceMap.MByName[c.cluster] = mByName
+        AllKindResourceMap.Unlock()
+        return nil</span>
+}
+
+// ConfigForResource generates the REST config of k8s client for the resource type and version
+func (c *KubeClient) ConfigForResource(name string, preferredVersion string) (rest.Config, error) <span class="cov0" title="0">{
+        newCfg := *c.config
+        gv, err := c.GetGroupVersionByName(name, preferredVersion)
+
+        glog.Infof("Found gv %s for %s", gv.String(), name)
+        if err != nil </span><span class="cov0" title="0">{
+                return newCfg, err
+        }</span>
+
+        <span class="cov0" title="0">newCfg.GroupVersion = &amp;gv
+        newCfg.NegotiatedSerializer = serializer.DirectCodecFactory{CodecFactory: scheme.Codecs}
+        switch newCfg.GroupVersion.Group </span>{
+        case "":<span class="cov0" title="0">
+                newCfg.APIPath = "/api"</span>
+        default:<span class="cov0" title="0">
+                newCfg.APIPath = "/apis"</span>
+        }
+        <span class="cov0" title="0">return newCfg, nil</span>
+}
+
+func canResourceList(resource metav1.APIResource) bool <span class="cov8" title="1">{
+        if strings.Contains(resource.Name, "/") </span><span class="cov8" title="1">{
+                return false
+        }</span>
+
+        <span class="cov8" title="1">for _, v := range resource.Verbs </span><span class="cov8" title="1">{
+                if v == "list" </span><span class="cov8" title="1">{
+                        return true
+                }</span>
+        }
+        <span class="cov8" title="1">return false</span>
+}
+</pre>
+		
+		</div>
+	</body>
+	<script>
+	(function() {
+		var files = document.getElementById('files');
+		var visible;
+		files.addEventListener('change', onChange, false);
+		function select(part) {
+			if (visible)
+				visible.style.display = 'none';
+			visible = document.getElementById(part);
+			if (!visible)
+				return;
+			files.value = part;
+			visible.style.display = 'block';
+			location.hash = part;
+		}
+		function onChange() {
+			select(files.value);
+			window.scrollTo(0, 0);
+		}
+		if (location.hash != "") {
+			select(location.hash.substr(1));
+		}
+		if (!visible) {
+			select("file0");
+		}
+	})();
+	</script>
+</html>
