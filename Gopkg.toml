@@ -23,12 +23,14 @@
 
 
 [[constraint]]
-  branch = "master"
   name = "k8s.io/client-go"
-
-
+  revision = "dbe8fe09ed1682bc26b4e55cac5ef65dcd7664e9"
 
 [[constraint]]
-  branch = "release-9.0"
-  name = "github.com/alecthomas/jsonschema"
+  name = "k8s.io/apimachinery"
+  revision = "18a564baac720819100827c16fdebcadb05b2d0d"
+
+[[override]]
+  name = "k8s.io/kubernetes"
+  version = "1.11.0"
 
