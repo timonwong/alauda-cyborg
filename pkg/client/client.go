@@ -8,6 +8,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"github.com/gin-gonic/gin/json"
 )
 
 type KubeClient struct {
@@ -47,7 +48,7 @@ func (c *KubeClient) getClientByGVK(gvk schema.GroupVersionKind) (dynamic.Interf
 	return c.clientPool.ClientForGroupVersionKind(gvk)
 }
 
-func (c *KubeClient) deleteResource(resource *unstructured.Unstructured) error {
+func (c *KubeClient) DeleteResource(resource *unstructured.Unstructured) error {
 	client, err := c.getClient(resource)
 	if err != nil {
 		return err
@@ -62,7 +63,7 @@ func (c *KubeClient) deleteResource(resource *unstructured.Unstructured) error {
 
 }
 
-func (c *KubeClient) createResource(resource *unstructured.Unstructured) (*unstructured.Unstructured, error) {
+func (c *KubeClient) CreateResource(resource *unstructured.Unstructured) (*unstructured.Unstructured, error) {
 	client, err := c.getClient(resource)
 	if err != nil {
 		return nil, err
@@ -77,7 +78,7 @@ func (c *KubeClient) createResource(resource *unstructured.Unstructured) (*unstr
 
 }
 
-func (c *KubeClient) updateResource(resource *unstructured.Unstructured) (*unstructured.Unstructured, error) {
+func (c *KubeClient) UpdateResource(resource *unstructured.Unstructured) (*unstructured.Unstructured, error) {
 	client, err := c.getClient(resource)
 	if err != nil {
 		return nil, err
@@ -91,7 +92,52 @@ func (c *KubeClient) updateResource(resource *unstructured.Unstructured) (*unstr
 	return client.Resource(apiResource, resource.GetNamespace()).Update(resource)
 }
 
-func (c *KubeClient) patchResource(resource *unstructured.Unstructured, body []byte, jt types.PatchType) (*unstructured.Unstructured, error) {
+func (c *KubeClient) GetResource(namespace, name string, options metav1.GetOptions) (*unstructured.Unstructured, error) {
+	gvk := schema.FromAPIVersionAndKind(options.APIVersion, options.Kind)
+	client, err := c.getClientByGVK(gvk)
+	if err != nil {
+		return nil, err
+	}
+
+	ar, err := c.GetApiResourceByKind(gvk.Kind)
+	if err != nil {
+		return nil, err
+	}
+
+	return client.Resource(ar, namespace).Get(name, options)
+}
+
+func (c *KubeClient) ListResource(namespace string, options metav1.ListOptions) (*unstructured.UnstructuredList, error) {
+	gvk := schema.FromAPIVersionAndKind(options.APIVersion, options.Kind)
+	client, err := c.getClientByGVK(gvk)
+	if err != nil {
+		return nil, err
+	}
+
+	ar, err := c.GetApiResourceByKind(gvk.Kind)
+	if err != nil {
+		return nil, err
+	}
+
+	object, err := client.Resource(ar, namespace).List(options)
+	if err != nil {
+		return nil, err
+	}
+
+	bytes, err := json.Marshal(object)
+	if err != nil {
+		return nil, err
+	}
+
+	var ul unstructured.UnstructuredList
+	if err := ul.UnmarshalJSON(bytes); err != nil {
+		return nil, err
+	}
+
+	return &ul, nil
+}
+
+func (c *KubeClient) PatchResource(resource *unstructured.Unstructured, body []byte, jt types.PatchType) (*unstructured.Unstructured, error) {
 	client, err := c.getClient(resource)
 	if err != nil {
 		return nil, err

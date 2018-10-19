@@ -3,6 +3,8 @@ package client
 import (
 	"k8s.io/client-go/rest"
 	"testing"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"fmt"
 )
 
 func assert(t *testing.T, a interface{}, b interface{}) {
@@ -37,4 +39,28 @@ func TestGetClient(t *testing.T) {
 	check(t, err)
 	assert(t, version, "v1")
 
+}
+
+func TestList(t *testing.T) {
+	c, _ := NewKubeClient(getConfig(), "dev")
+
+	result, err := c.ListResource("default", metav1.ListOptions{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "Pod",
+			APIVersion: "v1",
+		}})
+	check(t, err)
+	fmt.Println(fmt.Sprintf("result: %+v %d", result.Object, len(result.Items)))
+}
+
+func TestGet(t *testing.T) {
+	c, _ := NewKubeClient(getConfig(), "dev")
+	result, err := c.GetResource("default", "kubernetes", metav1.GetOptions{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "Service",
+			APIVersion: "v1",
+		},
+	})
+	check(t, err)
+	fmt.Println(result)
 }
