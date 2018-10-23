@@ -293,7 +293,7 @@ func (c *KubeClient) IsClusterScopeResource(kind string) bool {
 		return false
 	}
 
-	return r.Namespaced
+	return !r.Namespaced
 }
 
 func canResourceList(resource metav1.APIResource) bool {
