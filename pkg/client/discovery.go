@@ -286,6 +286,16 @@ func (c *KubeClient) ConfigForResource(name string, preferredVersion string) (re
 	return newCfg, nil
 }
 
+func (c *KubeClient) IsClusterScopeResource(kind string) bool {
+	r, err := c.GetApiResourceByKind(kind)
+	if err != nil {
+		// Default as no cluster scope
+		return false
+	}
+
+	return r.Namespaced
+}
+
 func canResourceList(resource metav1.APIResource) bool {
 	if strings.Contains(resource.Name, "/") {
 		return false
