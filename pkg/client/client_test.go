@@ -5,6 +5,7 @@ import (
 	"testing"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"fmt"
+	"os"
 )
 
 func assert(t *testing.T, a interface{}, b interface{}) {
@@ -20,8 +21,8 @@ func check(t *testing.T, err error) {
 
 func getConfig() *rest.Config {
 	return &rest.Config{
-		Host:        "https://119.28.224.65:6443",
-		BearerToken: "fuckfk.baidu12345678910",
+		Host:        os.Getenv("DEV_HOST"),
+		BearerToken: os.Getenv("DEV_TOKEN"),
 		APIPath:     "apis",
 		TLSClientConfig: rest.TLSClientConfig{
 			Insecure: true,

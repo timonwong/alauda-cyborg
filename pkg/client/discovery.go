@@ -11,6 +11,7 @@ import (
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	"github.com/golang/glog"
+	"github.com/juju/errors"
 )
 
 // APIGroupMap indexed by group
@@ -137,7 +138,7 @@ func (c *KubeClient) GetApiResourceByName(name string, preferredVersion string) 
 				return &v, nil
 			}
 		}
-		return nil, fmt.Errorf("find apiResource for name error: %s %s", c.cluster, name)
+		return nil, errors.Annotate(ErrTypeNotFind, name)
 	}
 
 	r, err := getAPIResource()
