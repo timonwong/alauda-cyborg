@@ -4,6 +4,7 @@ import (
 	"k8s.io/client-go/rest"
 	"testing"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	apiErrors "k8s.io/apimachinery/pkg/api/errors"
 	"fmt"
 	"os"
 )
@@ -64,4 +65,14 @@ func TestGet(t *testing.T) {
 	})
 	check(t, err)
 	fmt.Println(result)
+
+	_, err = c.GetResource("default", "kubernetes-not-exist", metav1.GetOptions{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "Service",
+			APIVersion: "v1",
+		},
+	})
+	assert(t, apiErrors.IsNotFound(err), true)
+
+
 }
