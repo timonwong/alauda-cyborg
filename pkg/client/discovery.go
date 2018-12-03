@@ -5,13 +5,13 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/golang/glog"
+	"github.com/juju/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
-	"github.com/golang/glog"
-	"github.com/juju/errors"
 )
 
 // APIGroupMap indexed by group
@@ -48,19 +48,6 @@ var AllKindResourceMap = KindResourceMap{
 // AllAPIResourceMap stores all api resource lists of k8s clusters.
 var AllAPIResourceMap = make(map[string][]*metav1.APIResourceList)
 
-type ErrorResourceKindNotFound struct {
-	kind string
-}
-
-func (e ErrorResourceKindNotFound) Error() string {
-	return fmt.Sprintf("resource kind '%s' not found", e.kind)
-}
-
-func IsResourceKindNotFound(err error) bool {
-	_, ok := err.(ErrorResourceKindNotFound)
-	return ok
-}
-
 // GetResourceList gets api resource list of the cluster.
 func (c *KubeClient) GetResourceList() ([]*metav1.APIResourceList, error) {
 	rl, ok := AllAPIResourceMap[c.cluster]
@@ -84,7 +71,9 @@ func (c *KubeClient) GetResourceList() ([]*metav1.APIResourceList, error) {
 func (c *KubeClient) GetResourceByKind(kind string) (string, error) {
 	r, err := c.GetApiResourceByKind(kind)
 	if err != nil {
-		return "", ErrorResourceKindNotFound{kind: kind}
+		return "", errors.Trace(
+			ErrorResourceTypeNotFound{message: fmt.Sprintf("resource kind '%s' not found", kind)},
+		)
 	}
 	return r.Name, nil
 }
@@ -103,7 +92,8 @@ func (c *KubeClient) GetApiResourceByKind(kind string) (*metav1.APIResource, err
 				return &v, nil
 			}
 		}
-		return nil, fmt.Errorf("find apiResource for kind error: %s %s", c.cluster, kind)
+		return nil, errors.Trace(ErrorResourceTypeNotFound{
+			message: fmt.Sprintf("find apiResource for kind error: %s %s", c.cluster, kind)})
 	}
 
 	r, err := getAPIResource()
@@ -138,7 +128,8 @@ func (c *KubeClient) GetApiResourceByName(name string, preferredVersion string) 
 				return &v, nil
 			}
 		}
-		return nil, errors.Annotate(ErrTypeNotFind, name)
+		return nil, errors.Trace(ErrorResourceTypeNotFound{
+			message: fmt.Sprintf("find apiResource for name error: %s %s", c.cluster, name)})
 	}
 
 	r, err := getAPIResource()
@@ -173,8 +164,9 @@ func (c *KubeClient) GetVersionByGroup(group string) (string, error) {
 	if ok {
 		return grp.PreferredVersion.Version, nil
 	}
-	return "", fmt.Errorf("find version for group error: %s %s", c.cluster, group)
-
+	return "", errors.Trace(ErrorResourceTypeNotFound{
+		message: fmt.Sprintf("find version for group error: %s %s", c.cluster, group),
+	})
 }
 
 // GetGroupVersionByName gets the group version of a resource by it's type name and

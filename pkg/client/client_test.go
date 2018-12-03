@@ -1,12 +1,13 @@
 package client
 
 import (
-	"k8s.io/client-go/rest"
-	"testing"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	apiErrors "k8s.io/apimachinery/pkg/api/errors"
 	"fmt"
 	"os"
+	"testing"
+
+	apiErrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/rest"
 )
 
 func assert(t *testing.T, a interface{}, b interface{}) {
@@ -73,6 +74,5 @@ func TestGet(t *testing.T) {
 		},
 	})
 	assert(t, apiErrors.IsNotFound(err), true)
-
 
 }

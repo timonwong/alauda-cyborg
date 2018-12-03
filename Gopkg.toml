@@ -30,7 +30,3 @@
   name = "k8s.io/apimachinery"
   revision = "18a564baac720819100827c16fdebcadb05b2d0d"
 
-[[override]]
-  name = "k8s.io/kubernetes"
-  version = "1.11.0"
-

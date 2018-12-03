@@ -1,15 +1,28 @@
 package client
 
-import "testing"
+import (
+	"fmt"
+	"reflect"
+	"testing"
+
+	"github.com/juju/errors"
+)
 
 func TestGetByName(t *testing.T) {
 	c, _ := NewKubeClient(getConfig(), "dev")
 	r, err := c.GetApiResourceByName("services", "")
-	check(t ,err)
-	assert(t, r.Kind, "Service")
-
+	if err != nil {
+		t.Errorf("Unexpected error: %s", err.Error())
+		return
+	}
+	if r.Kind != "Service" {
+		t.Errorf("Expect 'Service', got '%s'", r.Kind)
+		return
+	}
 
 	r, err = c.GetApiResourceByName("service", "")
-	print(err.Error())
-	assert(t, IsResourceTypeNotFindError(err), true)
+	fmt.Println(err.Error())
+	if !IsResourceTypeNotFound(err) {
+		t.Errorf("Expect ErrorResourceTypeNotFind, got %s", reflect.TypeOf(errors.Cause(err)))
+	}
 }

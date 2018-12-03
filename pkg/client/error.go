@@ -2,10 +2,15 @@ package client
 
 import "github.com/juju/errors"
 
-var (
-	ErrTypeNotFind = errors.New("find apiResource for type error")
-)
+type ErrorResourceTypeNotFound struct {
+	message string
+}
 
-func IsResourceTypeNotFindError(err error) bool {
-	return errors.Cause(err) == ErrTypeNotFind
+func (e ErrorResourceTypeNotFound) Error() string {
+	return e.message
+}
+
+func IsResourceTypeNotFound(err error) bool {
+	_, ok := errors.Cause(err).(ErrorResourceTypeNotFound)
+	return ok
 }
