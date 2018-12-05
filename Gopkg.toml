@@ -30,3 +30,6 @@
   name = "k8s.io/apimachinery"
   revision = "18a564baac720819100827c16fdebcadb05b2d0d"
 
+[[override]]
+  name ="k8s.io/api"
+  revision = "218912509d74a117d05a718bb926d0948e531c20"
