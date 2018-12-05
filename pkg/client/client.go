@@ -49,6 +49,7 @@ func (c *KubeClient) getClientByGVK(gvk schema.GroupVersionKind) (dynamic.Interf
 	return c.clientPool.ClientForGroupVersionKind(gvk)
 }
 
+// options'kind should be the resources' kind
 func (c *KubeClient) DeleteResourceByName(namespace, name string, options *metav1.DeleteOptions) error {
 	gvk := schema.FromAPIVersionAndKind(options.APIVersion, options.Kind)
 	client, err := c.getClientByGVK(gvk)
@@ -61,7 +62,25 @@ func (c *KubeClient) DeleteResourceByName(namespace, name string, options *metav
 		return err
 	}
 
+	options.Kind = "DeleteOptions"
+
 	return client.Resource(ar, namespace).Delete(name, options)
+}
+
+// use listOptions as type meta
+func (c *KubeClient) DeleteCollection(namespace string, deleteOptions *metav1.DeleteOptions, listOptions metav1.ListOptions) error {
+	gvk := schema.FromAPIVersionAndKind(listOptions.APIVersion, listOptions.Kind)
+	client, err := c.getClientByGVK(gvk)
+	if err != nil {
+		return err
+	}
+
+	ar, err := c.GetApiResourceByKind(gvk.Kind)
+	if err != nil {
+		return err
+	}
+
+	return client.Resource(ar, namespace).DeleteCollection(deleteOptions, listOptions)
 }
 
 func (c *KubeClient) DeleteResource(resource *unstructured.Unstructured) error {

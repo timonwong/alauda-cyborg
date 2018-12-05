@@ -2,6 +2,8 @@ package client
 
 import (
 	"fmt"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/types"
 	"os"
 	"testing"
 
@@ -56,15 +58,59 @@ func TestList(t *testing.T) {
 	fmt.Println(fmt.Sprintf("result: %+v %d", result.Object, len(result.Items)))
 }
 
-func TestDelete(t *testing.T) {
+func TestCreate(t *testing.T) {
 	c, _ := NewKubeClient(getConfig(), "dev")
-	err := c.DeleteResourceByName("default", "kubernetes-not-exist", &metav1.DeleteOptions{
+	body := []byte(`{"kind":"Namespace","apiVersion":"v1","metadata":{"name":"f9","creationTimestamp":null},"spec":{},"status":{}}`)
+	var obj unstructured.Unstructured
+	obj.UnmarshalJSON(body)
+	_, err := c.CreateResource(&obj)
+	check(t, err)
+
+}
+
+func TestPatch(t *testing.T) {
+	c, _ := NewKubeClient(getConfig(), "dev")
+	body := []byte(`{"metadata":{"labels":{"f":"1"}}}`)
+
+	result, err := c.GetResource("", "f9", metav1.GetOptions{
 		TypeMeta: metav1.TypeMeta{
-			Kind:       "Service",
+			Kind:       "Namespace",
 			APIVersion: "v1",
 		},
 	})
-	assert(t, apiErrors.IsNotFound(err), true)
+	check(t, err)
+	_, err = c.PatchResource(result, body, types.MergePatchType)
+	check(t, err)
+
+}
+
+/*func TestDeleteCollection(t *testing.T) {
+	c, _ := NewKubeClient(getConfig(), "dev")
+	err := c.DeleteCollection("", &metav1.DeleteOptions{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "DeleteOptions",
+			APIVersion: "v1",
+		},
+	}, metav1.ListOptions{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "Namespace",
+			APIVersion: "v1",
+		},
+		LabelSelector: "f=1",
+	})
+	check(t, err)
+}*/
+
+func TestDelete(t *testing.T) {
+	c, _ := NewKubeClient(getConfig(), "dev")
+	err := c.DeleteResourceByName("", "f9", &metav1.DeleteOptions{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "Namespace",
+			APIVersion: "v1",
+		},
+	})
+	//assert(t, apiErrors.IsNotFound(err), true)
+	check(t, err)
 }
 
 func TestGet(t *testing.T) {
