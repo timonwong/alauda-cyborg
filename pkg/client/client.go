@@ -49,6 +49,21 @@ func (c *KubeClient) getClientByGVK(gvk schema.GroupVersionKind) (dynamic.Interf
 	return c.clientPool.ClientForGroupVersionKind(gvk)
 }
 
+func (c *KubeClient) DeleteResourceByName(namespace, name string, options *metav1.DeleteOptions) error {
+	gvk := schema.FromAPIVersionAndKind(options.APIVersion, options.Kind)
+	client, err := c.getClientByGVK(gvk)
+	if err != nil {
+		return err
+	}
+
+	ar, err := c.GetApiResourceByKind(gvk.Kind)
+	if err != nil {
+		return err
+	}
+
+	return client.Resource(ar, namespace).Delete(name, options)
+}
+
 func (c *KubeClient) DeleteResource(resource *unstructured.Unstructured) error {
 	client, err := c.getClient(resource)
 	if err != nil {

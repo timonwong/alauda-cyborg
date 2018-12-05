@@ -56,6 +56,17 @@ func TestList(t *testing.T) {
 	fmt.Println(fmt.Sprintf("result: %+v %d", result.Object, len(result.Items)))
 }
 
+func TestDelete(t *testing.T) {
+	c, _ := NewKubeClient(getConfig(), "dev")
+	err := c.DeleteResourceByName("default", "kubernetes-not-exist", &metav1.DeleteOptions{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "Service",
+			APIVersion: "v1",
+		},
+	})
+	assert(t, apiErrors.IsNotFound(err), true)
+}
+
 func TestGet(t *testing.T) {
 	c, _ := NewKubeClient(getConfig(), "dev")
 	result, err := c.GetResource("default", "kubernetes", metav1.GetOptions{

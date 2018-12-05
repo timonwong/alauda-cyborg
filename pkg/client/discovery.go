@@ -49,7 +49,7 @@ var AllKindResourceMap = KindResourceMap{
 var AllAPIResourceMap = make(map[string][]*metav1.APIResourceList)
 
 // GetResourceList gets api resource list of the cluster.
-func (c *KubeClient) GetResourceList() ([]*metav1.APIResourceList, error) {
+func (c *KubeClient) GetApiResourceList() ([]*metav1.APIResourceList, error) {
 	rl, ok := AllAPIResourceMap[c.cluster]
 	if ok {
 		return rl, nil
@@ -68,7 +68,7 @@ func (c *KubeClient) GetResourceList() ([]*metav1.APIResourceList, error) {
 
 // GetResourceByKind gets the name of resource type by the resource kind.
 // eg: Deployment -> deployments
-func (c *KubeClient) GetResourceByKind(kind string) (string, error) {
+func (c *KubeClient) GetResourceTypeByKind(kind string) (string, error) {
 	r, err := c.GetApiResourceByKind(kind)
 	if err != nil {
 		return "", errors.Trace(
