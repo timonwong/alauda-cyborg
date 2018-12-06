@@ -14,52 +14,55 @@ import (
 	"k8s.io/client-go/rest"
 )
 
-// APIGroupMap indexed by group
-type APIGroupMap map[string]metav1.APIGroup
-
-// APIResourceVersionMap defines an APIResource map type using apiVersion as key.
-type APIResourceVersionMap map[string]metav1.APIResource
-
-// APIResourceMap is api resources indexed by resource kind(Deployment,Service....)
-type APIResourceMap map[string]APIResourceVersionMap
-
-type GroupVersionMap struct {
-	M map[string]APIGroupMap
-	sync.RWMutex
-}
-
-type KindResourceMap struct {
+type APIGroupMap struct {
 	// index by cluster
-	M map[string]APIResourceMap
-	// API resource map indexed by resource type name
-	MByName map[string]APIResourceMap
+	M map[string]*metav1.APIGroupList
 	sync.RWMutex
 }
 
-var AllGroupVersion = GroupVersionMap{
-	M: make(map[string]APIGroupMap),
+type APIResourceMap struct {
+	// index by cluster
+	M map[string][]*metav1.APIResourceList
+	sync.RWMutex
 }
 
-var AllKindResourceMap = KindResourceMap{
-	M:       make(map[string]APIResourceMap),
-	MByName: make(map[string]APIResourceMap),
-}
+var (
+	AllAPIGroupMap = APIGroupMap{
+		M: make(map[string]*metav1.APIGroupList),
+	}
+	AllAPIResourceMap = APIResourceMap{
+		M: make(map[string][]*metav1.APIResourceList),
+	}
+)
 
-// AllAPIResourceMap stores all api resource lists of k8s clusters.
-var AllAPIResourceMap = make(map[string][]*metav1.APIResourceList)
+func (c *KubeClient) GetGroupVersionList() (*metav1.APIGroupList, error) {
+	gl, ok := AllAPIGroupMap.M[c.cluster]
+	if ok {
+		return gl, nil
+	}
+
+	if err := c.syncGroupVersion(true); err != nil {
+		return nil, err
+	}
+	gl, ok = AllAPIGroupMap.M[c.cluster]
+	if ok {
+		return gl, nil
+	}
+	return nil, fmt.Errorf("find no group version list for %s", c.cluster)
+}
 
 // GetResourceList gets api resource list of the cluster.
 func (c *KubeClient) GetApiResourceList() ([]*metav1.APIResourceList, error) {
-	rl, ok := AllAPIResourceMap[c.cluster]
+	rl, ok := AllAPIResourceMap.M[c.cluster]
 	if ok {
 		return rl, nil
 	}
 
-	if err := c.syncKindResourceMap(true); err != nil {
+	if err := c.syncAPIResourceMap(true); err != nil {
 		return nil, err
 	}
 
-	rl, ok = AllAPIResourceMap[c.cluster]
+	rl, ok = AllAPIResourceMap.M[c.cluster]
 	if ok {
 		return rl, nil
 	}
@@ -78,95 +81,94 @@ func (c *KubeClient) GetResourceTypeByKind(kind string) (string, error) {
 	return r.Name, nil
 }
 
-// GetResourceByKind gets the APIResource by the resource kind.
-func (c *KubeClient) GetApiResourceByKind(kind string) (*metav1.APIResource, error) {
-	getAPIResource := func() (*metav1.APIResource, error) {
-		data, ok := AllKindResourceMap.M[c.cluster]
-		if !ok {
-			return nil, fmt.Errorf("api resource map cache not init for cluster: %s", c.cluster)
-		}
+func IsSubResource(resource *metav1.APIResource) bool {
+	return strings.Contains(resource.Name, "/")
+}
 
-		r, ok := data[kind]
-		if ok {
-			for _, v := range r {
-				return &v, nil
-			}
+func canResourceList(resource metav1.APIResource) bool {
+	if strings.Contains(resource.Name, "/") {
+		return false
+	}
+
+	for _, v := range resource.Verbs {
+		if v == "list" {
+			return true
 		}
+	}
+	return false
+}
+
+// GetResourceByKind gets the APIResource by the resource kind， skip sub resources
+func (c *KubeClient) GetApiResourceByKind(kind string) (*metav1.APIResource, error) {
+	resources, err := c.GetApiResourceList()
+	if err != nil {
 		return nil, errors.Trace(ErrorResourceTypeNotFound{
 			message: fmt.Sprintf("find apiResource for kind error: %s %s", c.cluster, kind)})
 	}
 
-	r, err := getAPIResource()
-	if err == nil {
-		return r, nil
+	for _, rl := range resources {
+		//TODO: test
+		for _, r := range rl.APIResources {
+			if r.Kind == kind && !IsSubResource(&r) {
+				return &r, nil
+			}
+		}
 	}
-
-	if err := c.syncKindResourceMap(true); err != nil {
-		return nil, err
-	}
-
-	return getAPIResource()
+	return nil, errors.Trace(ErrorResourceTypeNotFound{
+		message: fmt.Sprintf("find apiResource for kind error: %s %s", c.cluster, kind)})
 }
 
 // GetApiResourceByName gets APIResource by the resource type name and
 // the preferred api version. If the preferredVersion not exist, the first
 // available version will be returned.
 func (c *KubeClient) GetApiResourceByName(name string, preferredVersion string) (*metav1.APIResource, error) {
-	getAPIResource := func() (*metav1.APIResource, error) {
-		data, ok := AllKindResourceMap.MByName[c.cluster]
-		if !ok {
-			return nil, fmt.Errorf("api resource map cache not init for cluster: %s", c.cluster)
-		}
+	resources, err := c.GetApiResourceList()
+	if err != nil {
+		return nil, errors.Trace(NewTypeNotFoundError(fmt.Sprintf("find apiResource for name error: %s %s", c.cluster, name)))
+	}
 
-		r, ok := data[name]
-		if ok {
-			v, exist := r[preferredVersion]
-			if exist {
-				return &v, nil
-			}
-			for _, v = range r {
-				return &v, nil
+	var cans []*metav1.APIResource
+	for _, rl := range resources {
+		for idx, r := range rl.APIResources {
+			if r.Name == name {
+				cans = append(cans, &rl.APIResources[idx])
 			}
 		}
-		return nil, errors.Trace(ErrorResourceTypeNotFound{
-			message: fmt.Sprintf("find apiResource for name error: %s %s", c.cluster, name)})
 	}
 
-	r, err := getAPIResource()
-	if err == nil {
-		return r, nil
+	if len(cans) == 0 {
+		return nil, errors.Trace(NewTypeNotFoundError(fmt.Sprintf("find apiResource for name error: %s %s", c.cluster, name)))
+
 	}
 
-	if err := c.syncKindResourceMap(true); err != nil {
-		return nil, err
+	for _, item := range cans {
+		gv := schema.GroupVersion{
+			Group:   item.Group,
+			Version: item.Version,
+		}
+		if gv.String() == preferredVersion {
+			return item, nil
+		}
 	}
 
-	return getAPIResource()
+	return cans[0], nil
+
 }
 
 // GetVersionByGroup gets the preferred version of a group.
 func (c *KubeClient) GetVersionByGroup(group string) (string, error) {
-	data, ok := AllGroupVersion.M[c.cluster]
-	if !ok {
-		return "", fmt.Errorf("group verion map cache not init for cluster: %s", c.cluster)
+	data, err := c.GetGroupVersionList()
+	if err != nil {
+		return "", err
 	}
 
-	grp, ok := data[group]
-	if ok {
-		return grp.PreferredVersion.Version, nil
-	} else {
-		if err := c.syncGroupVersion(true); err != nil {
-			return "", err
+	for _, item := range data.Groups {
+		if item.Name == group {
+			return item.PreferredVersion.Version, nil
 		}
 	}
 
-	grp, ok = data[group]
-	if ok {
-		return grp.PreferredVersion.Version, nil
-	}
-	return "", errors.Trace(ErrorResourceTypeNotFound{
-		message: fmt.Sprintf("find version for group error: %s %s", c.cluster, group),
-	})
+	return "", errors.Trace(NewTypeNotFoundError(fmt.Sprintf("find version for group error: %s %s", c.cluster, group)))
 }
 
 // GetGroupVersionByName gets the group version of a resource by it's type name and
@@ -187,7 +189,7 @@ func (c *KubeClient) GetGroupVersionByName(name string, preferredVersion string)
 // if force == false, skip sync if already have data in the map
 func (c *KubeClient) syncGroupVersion(force bool) error {
 	if !force {
-		_, ok := AllGroupVersion.M[c.cluster]
+		_, ok := AllAPIResourceMap.M[c.cluster]
 		if ok {
 			return nil
 		}
@@ -197,25 +199,19 @@ func (c *KubeClient) syncGroupVersion(force bool) error {
 	if err != nil {
 		return err
 	}
-
-	m := make(APIGroupMap)
-
-	for _, item := range groups.Groups {
-		m[item.Name] = item
-	}
-	glog.Infof("resync group version info %+v for cluster: %s", m, c.cluster)
-	AllGroupVersion.Lock()
-	AllGroupVersion.M[c.cluster] = m
-	AllGroupVersion.Unlock()
+	glog.Infof("resync group version info %+v for cluster: %s", groups, c.cluster)
+	AllAPIGroupMap.Lock()
+	AllAPIGroupMap.M[c.cluster] = groups
+	AllAPIGroupMap.Unlock()
 
 	return nil
 }
 
 // syncKindResourceMap happens in client init and new resource added
 // if force == false, skip sync if already have data in the map
-func (c *KubeClient) syncKindResourceMap(force bool) error {
+func (c *KubeClient) syncAPIResourceMap(force bool) error {
 	if !force {
-		_, ok := AllKindResourceMap.M[c.cluster]
+		_, ok := AllAPIResourceMap.M[c.cluster]
 		if ok {
 			return nil
 		}
@@ -225,36 +221,24 @@ func (c *KubeClient) syncKindResourceMap(force bool) error {
 	if err != nil {
 		return err
 	}
-	m := make(APIResourceMap)
-	mByName := make(APIResourceMap)
+	glog.Infof("resync api resource info %+v for cluster: %s", serverResourceList, c.cluster)
 
+	// set group and version
 	for _, rl := range serverResourceList {
 		gv, err := schema.ParseGroupVersion(rl.GroupVersion)
 		if err != nil {
 			glog.Errorf("parse group version for %s error: %s", rl.GroupVersion, err)
 			continue
 		}
-		for _, r := range rl.APIResources {
-			if canResourceList(r) {
-				if m[r.Kind] == nil {
-					m[r.Kind] = make(APIResourceVersionMap)
-				}
-				// originally empty
-				r.Group = gv.Group
-				r.Version = gv.Version
-
-				m[r.Kind][gv.String()] = r
-				mByName[r.Name] = m[r.Kind]
-			}
-
+		for idx := range rl.APIResources {
+			rl.APIResources[idx].Group = gv.Group
+			rl.APIResources[idx].Version = gv.Version
 		}
 	}
 
-	AllKindResourceMap.Lock()
-	AllAPIResourceMap[c.cluster] = serverResourceList
-	AllKindResourceMap.M[c.cluster] = m
-	AllKindResourceMap.MByName[c.cluster] = mByName
-	AllKindResourceMap.Unlock()
+	AllAPIResourceMap.Lock()
+	AllAPIResourceMap.M[c.cluster] = serverResourceList
+	AllAPIResourceMap.Unlock()
 	return nil
 }
 
@@ -287,17 +271,4 @@ func (c *KubeClient) IsClusterScopeResource(kind string) bool {
 	}
 
 	return !r.Namespaced
-}
-
-func canResourceList(resource metav1.APIResource) bool {
-	if strings.Contains(resource.Name, "/") {
-		return false
-	}
-
-	for _, v := range resource.Verbs {
-		if v == "list" {
-			return true
-		}
-	}
-	return false
 }

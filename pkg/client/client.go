@@ -34,7 +34,7 @@ func NewKubeClient(cfg *rest.Config, cluster string) (*KubeClient, error) {
 	if err := c.syncGroupVersion(false); err != nil {
 		return nil, err
 	}
-	if err := c.syncKindResourceMap(false); err != nil {
+	if err := c.syncAPIResourceMap(false); err != nil {
 		return nil, err
 	}
 	return &c, nil
