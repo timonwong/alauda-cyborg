@@ -27,16 +27,16 @@ type APIResourceMap struct {
 }
 
 var (
-	AllAPIGroupMap = APIGroupMap{
+	allAPIGroupMap = APIGroupMap{
 		M: make(map[string]*metav1.APIGroupList),
 	}
-	AllAPIResourceMap = APIResourceMap{
+	allAPIResourceMap = APIResourceMap{
 		M: make(map[string][]*metav1.APIResourceList),
 	}
 )
 
 func (c *KubeClient) GetGroupVersionList() (*metav1.APIGroupList, error) {
-	gl, ok := AllAPIGroupMap.M[c.cluster]
+	gl, ok := allAPIGroupMap.M[c.cluster]
 	if ok {
 		return gl, nil
 	}
@@ -44,7 +44,7 @@ func (c *KubeClient) GetGroupVersionList() (*metav1.APIGroupList, error) {
 	if err := c.syncGroupVersion(true); err != nil {
 		return nil, err
 	}
-	gl, ok = AllAPIGroupMap.M[c.cluster]
+	gl, ok = allAPIGroupMap.M[c.cluster]
 	if ok {
 		return gl, nil
 	}
@@ -53,7 +53,7 @@ func (c *KubeClient) GetGroupVersionList() (*metav1.APIGroupList, error) {
 
 // GetResourceList gets api resource list of the cluster.
 func (c *KubeClient) GetApiResourceList() ([]*metav1.APIResourceList, error) {
-	rl, ok := AllAPIResourceMap.M[c.cluster]
+	rl, ok := allAPIResourceMap.M[c.cluster]
 	if ok {
 		return rl, nil
 	}
@@ -62,7 +62,7 @@ func (c *KubeClient) GetApiResourceList() ([]*metav1.APIResourceList, error) {
 		return nil, err
 	}
 
-	rl, ok = AllAPIResourceMap.M[c.cluster]
+	rl, ok = allAPIResourceMap.M[c.cluster]
 	if ok {
 		return rl, nil
 	}
@@ -189,7 +189,7 @@ func (c *KubeClient) GetGroupVersionByName(name string, preferredVersion string)
 // if force == false, skip sync if already have data in the map
 func (c *KubeClient) syncGroupVersion(force bool) error {
 	if !force {
-		_, ok := AllAPIResourceMap.M[c.cluster]
+		_, ok := allAPIResourceMap.M[c.cluster]
 		if ok {
 			return nil
 		}
@@ -200,9 +200,9 @@ func (c *KubeClient) syncGroupVersion(force bool) error {
 		return err
 	}
 	glog.Infof("resync group version info %+v for cluster: %s", groups, c.cluster)
-	AllAPIGroupMap.Lock()
-	AllAPIGroupMap.M[c.cluster] = groups
-	AllAPIGroupMap.Unlock()
+	allAPIGroupMap.Lock()
+	allAPIGroupMap.M[c.cluster] = groups
+	allAPIGroupMap.Unlock()
 
 	return nil
 }
@@ -211,7 +211,7 @@ func (c *KubeClient) syncGroupVersion(force bool) error {
 // if force == false, skip sync if already have data in the map
 func (c *KubeClient) syncAPIResourceMap(force bool) error {
 	if !force {
-		_, ok := AllAPIResourceMap.M[c.cluster]
+		_, ok := allAPIResourceMap.M[c.cluster]
 		if ok {
 			return nil
 		}
@@ -236,9 +236,9 @@ func (c *KubeClient) syncAPIResourceMap(force bool) error {
 		}
 	}
 
-	AllAPIResourceMap.Lock()
-	AllAPIResourceMap.M[c.cluster] = serverResourceList
-	AllAPIResourceMap.Unlock()
+	allAPIResourceMap.Lock()
+	allAPIResourceMap.M[c.cluster] = serverResourceList
+	allAPIResourceMap.Unlock()
 	return nil
 }
 
