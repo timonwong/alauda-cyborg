@@ -1,9 +1,15 @@
 package client
 
-import "github.com/juju/errors"
+import (
+	"github.com/juju/errors"
+)
 
 type ErrorResourceTypeNotFound struct {
 	message string
+}
+
+func NewTypeNotFoundError(message string) ErrorResourceTypeNotFound {
+	return ErrorResourceTypeNotFound{message: message}
 }
 
 func (e ErrorResourceTypeNotFound) Error() string {

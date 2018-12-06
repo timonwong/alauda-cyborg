@@ -8,6 +8,23 @@ import (
 	"github.com/juju/errors"
 )
 
+func TestSync(t *testing.T) {
+	c, _ := NewKubeClient(getConfig(), "dev")
+	//t.Logf("APIResource Map: %+v", allAPIResourceMap.M)
+	//t.Logf("GroupVersion Map: %+v", allAPIGroupMap.M)
+	res, err := c.GetApiResourceByKind("Deployment")
+	check(t, err)
+	t.Logf("Deployment: %+v", res)
+
+	res, err = c.GetApiResourceByName("deployments", "")
+	check(t, err)
+	t.Logf("Deployment: %+v", res)
+
+	res, err = c.GetApiResourceByName("deployments", "apps/v1")
+	check(t, err)
+	t.Logf("Deployment: %+v", res)
+}
+
 func TestGetByName(t *testing.T) {
 	c, _ := NewKubeClient(getConfig(), "dev")
 	r, err := c.GetApiResourceByName("services", "")
