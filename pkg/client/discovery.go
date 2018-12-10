@@ -290,10 +290,5 @@ func (c *KubeClient) DynamicClientForResource(resource string, version string) (
 	}
 	gvr := gv.WithResource(resource)
 
-	dc, err := dynamic.NewForConfig(c.config)
-	if err != nil {
-		return nil, err
-	}
-
-	return dc.Resource(gvr), nil
+	return c.ic.Resource(gvr), nil
 }
