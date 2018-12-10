@@ -292,3 +292,13 @@ func (c *KubeClient) DynamicClientForResource(resource string, version string) (
 
 	return c.ic.Resource(gvr), nil
 }
+
+func (c *KubeClient) ClientForGVK(gvk schema.GroupVersionKind) (dynamic.NamespaceableResourceInterface, error) {
+	resource, err := c.GetResourceTypeByKind(gvk.Kind)
+	if err != nil {
+		return nil, err
+	}
+
+	version := gvk.GroupVersion().String()
+	return c.DynamicClientForResource(resource, version)
+}

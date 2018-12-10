@@ -2,6 +2,7 @@ package client
 
 import (
 	"fmt"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/rest"
 	"os"
 	"reflect"
@@ -97,11 +98,19 @@ func TestGetDynamicClient(t *testing.T) {
 	check(t, err)
 	result, err = dc.List(metav1.ListOptions{})
 	check(t, err)
-	t.Logf("total pv: %d", len(result.Items))
+	pvs := len(result.Items)
+	t.Logf("total pv: %d", pvs)
 	// test if set namespace not work
 	ndc = dc.Namespace("default")
 	result, err = ndc.List(metav1.ListOptions{})
 
-
+	dc, err = c.ClientForGVK(schema.GroupVersionKind{
+		Group:   "",
+		Version: "v1",
+		Kind:    "PersistentVolume",
+	})
+	check(t, err)
+	result, err = dc.List(metav1.ListOptions{})
+	assert(t, len(result.Items) == pvs, true)
 
 }
