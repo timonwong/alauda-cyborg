@@ -2,6 +2,7 @@ package client
 
 import (
 	"fmt"
+	"k8s.io/client-go/dynamic"
 	"strings"
 	"sync"
 
@@ -271,4 +272,28 @@ func (c *KubeClient) IsClusterScopeResource(kind string) bool {
 	}
 
 	return !r.Namespaced
+}
+
+func (c *KubeClient) IsNamespaceScoped(resource string) (bool, error) {
+	res, err := c.GetApiResourceByName(resource, "")
+	if err != nil {
+		return false, err
+	}
+	return res.Namespaced, nil
+}
+
+// DynamicClientForResource get dynamic client for resource
+func (c *KubeClient) DynamicClientForResource(resource string, version string) (dynamic.NamespaceableResourceInterface, error) {
+	gv, err := c.GetGroupVersionByName(resource, version)
+	if err != nil {
+		return nil, err
+	}
+	gvr := gv.WithResource(resource)
+
+	dc, err := dynamic.NewForConfig(c.config)
+	if err != nil {
+		return nil, err
+	}
+
+	return dc.Resource(gvr), nil
 }

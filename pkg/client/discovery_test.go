@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/juju/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func getConfig() *rest.Config {
@@ -66,4 +67,41 @@ func TestGetByName(t *testing.T) {
 	if !IsResourceTypeNotFound(err) {
 		t.Errorf("Expect ErrorResourceTypeNotFind, got %s", reflect.TypeOf(errors.Cause(err)))
 	}
+}
+
+func TestIsNamespaceScoped(t *testing.T) {
+	c, _ := NewKubeClient(getConfig(), "dev")
+	r, err := c.IsNamespaceScoped("deployments")
+	check(t, err)
+	assert(t, r, true)
+
+	r, err = c.IsNamespaceScoped("clusterroles")
+	check(t, err)
+	assert(t, r, false)
+}
+
+func TestGetDynamicClient(t *testing.T) {
+	c, _ := NewKubeClient(getConfig(), "dev")
+	dc, err := c.DynamicClientForResource("services", "")
+	check(t, err)
+	result, err := dc.List(metav1.ListOptions{})
+	check(t, err)
+	t.Logf("total services: %d", len(result.Items))
+
+	ndc := dc.Namespace("default")
+	result, err = ndc.List(metav1.ListOptions{})
+	check(t, err)
+	t.Logf("services in default ns : %d", len(result.Items))
+
+	dc, err = c.DynamicClientForResource("persistentvolumes", "")
+	check(t, err)
+	result, err = dc.List(metav1.ListOptions{})
+	check(t, err)
+	t.Logf("total pv: %d", len(result.Items))
+	// test if set namespace not work
+	ndc = dc.Namespace("default")
+	result, err = ndc.List(metav1.ListOptions{})
+
+
+
 }
