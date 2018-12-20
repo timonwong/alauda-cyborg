@@ -2,9 +2,10 @@ package client
 
 import (
 	"fmt"
-	"k8s.io/client-go/dynamic"
 	"strings"
 	"sync"
+
+	"k8s.io/client-go/dynamic"
 
 	"github.com/golang/glog"
 	"github.com/juju/errors"
@@ -123,23 +124,41 @@ func (c *KubeClient) GetApiResourceByKind(kind string) (*metav1.APIResource, err
 // the preferred api version. If the preferredVersion not exist, the first
 // available version will be returned.
 func (c *KubeClient) GetApiResourceByName(name string, preferredVersion string) (*metav1.APIResource, error) {
-	resources, err := c.GetApiResourceList()
-	if err != nil {
-		return nil, errors.Trace(NewTypeNotFoundError(fmt.Sprintf("find apiResource for name error: %s %s", c.cluster, name)))
-	}
-
 	var cans []*metav1.APIResource
-	for _, rl := range resources {
-		for idx, r := range rl.APIResources {
-			if r.Name == name {
-				cans = append(cans, &rl.APIResources[idx])
+	getFunc := func() error {
+		resources, err := c.GetApiResourceList()
+		if err != nil {
+			return errors.Trace(NewTypeNotFoundError(fmt.Sprintf("find apiResource for name error: %s %s", c.cluster, name)))
+		}
+
+		for _, rl := range resources {
+			for idx, r := range rl.APIResources {
+				if r.Name == name {
+					cans = append(cans, &rl.APIResources[idx])
+				}
 			}
 		}
+
+		if len(cans) == 0 {
+			return errors.Trace(NewTypeNotFoundError(fmt.Sprintf("find apiResource for name error: %s %s", c.cluster, name)))
+		}
+		return nil
 	}
 
-	if len(cans) == 0 {
-		return nil, errors.Trace(NewTypeNotFoundError(fmt.Sprintf("find apiResource for name error: %s %s", c.cluster, name)))
-
+	err := getFunc()
+	if err != nil {
+		if IsResourceTypeNotFound(err) {
+			// Force sync to make sure the resource type is not exist
+			if err := c.syncAPIResourceMap(true); err != nil {
+				return nil, err
+			}
+			err = getFunc()
+			if err != nil {
+				return nil, err
+			}
+		} else {
+			return nil, err
+		}
 	}
 
 	for _, item := range cans {
