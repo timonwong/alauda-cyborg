@@ -100,8 +100,22 @@ func canResourceList(resource metav1.APIResource) bool {
 	return false
 }
 
-// GetResourceByKind gets the APIResource by the resource kind， skip sub resources
 func (c *KubeClient) GetApiResourceByKind(kind string) (*metav1.APIResource, error) {
+	resource, err := c.getApiResourceByKind(kind)
+	if err != nil {
+		if IsResourceTypeNotFound(err) {
+			// force resync and retry
+			if err := c.syncAPIResourceMap(true); err != nil {
+				return nil, err
+			}
+			return c.getApiResourceByKind(kind)
+		}
+	}
+	return resource, err
+}
+
+// GetResourceByKind gets the APIResource by the resource kind， skip sub resources
+func (c *KubeClient) getApiResourceByKind(kind string) (*metav1.APIResource, error) {
 	resources, err := c.GetApiResourceList()
 	if err != nil {
 		return nil, errors.Trace(ErrorResourceTypeNotFound{
@@ -177,6 +191,20 @@ func (c *KubeClient) GetApiResourceByName(name string, preferredVersion string) 
 
 // GetVersionByGroup gets the preferred version of a group.
 func (c *KubeClient) GetVersionByGroup(group string) (string, error) {
+	version, err := c.getVersionByGroup(group)
+	if err != nil {
+		if IsResourceTypeNotFound(err) {
+			if err := c.syncGroupVersion(true); err != nil {
+				return "", err
+			}
+			return c.getVersionByGroup(group)
+		}
+
+	}
+	return version, err
+}
+
+func (c *KubeClient) getVersionByGroup(group string) (string, error) {
 	data, err := c.GetGroupVersionList()
 	if err != nil {
 		return "", err
