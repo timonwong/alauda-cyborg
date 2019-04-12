@@ -100,22 +100,38 @@ func canResourceList(resource metav1.APIResource) bool {
 	return false
 }
 
+// GetApiResourceByKindInsensitive get api resource by kind
 func (c *KubeClient) GetApiResourceByKind(kind string) (*metav1.APIResource, error) {
-	resource, err := c.getApiResourceByKind(kind)
+	resource, err := c.getApiResourceByKind(kind, false)
 	if err != nil {
 		if IsResourceTypeNotFound(err) {
 			// force resync and retry
 			if err := c.syncAPIResourceMap(true); err != nil {
 				return nil, err
 			}
-			return c.getApiResourceByKind(kind)
+			return c.getApiResourceByKind(kind, false)
+		}
+	}
+	return resource, err
+}
+
+// GetApiResourceByKindInsensitive get api resource by kind, but ignore case when compare
+func (c *KubeClient) GetApiResourceByKindInsensitive(kind string) (*metav1.APIResource, error) {
+	resource, err := c.getApiResourceByKind(kind, true)
+	if err != nil {
+		if IsResourceTypeNotFound(err) {
+			// force resync and retry
+			if err := c.syncAPIResourceMap(true); err != nil {
+				return nil, err
+			}
+			return c.getApiResourceByKind(kind, true)
 		}
 	}
 	return resource, err
 }
 
 // GetResourceByKind gets the APIResource by the resource kind， skip sub resources
-func (c *KubeClient) getApiResourceByKind(kind string) (*metav1.APIResource, error) {
+func (c *KubeClient) getApiResourceByKind(kind string, ignoreCase bool) (*metav1.APIResource, error) {
 	resources, err := c.GetApiResourceList()
 	if err != nil {
 		return nil, errors.Trace(ErrorResourceTypeNotFound{
@@ -125,8 +141,10 @@ func (c *KubeClient) getApiResourceByKind(kind string) (*metav1.APIResource, err
 	for _, rl := range resources {
 		//TODO: test
 		for _, r := range rl.APIResources {
-			if r.Kind == kind && !IsSubResource(&r) {
-				return &r, nil
+			if !IsSubResource(&r) {
+				if r.Kind == kind || (ignoreCase && strings.EqualFold(r.Kind, kind)) {
+					return &r, nil
+				}
 			}
 		}
 	}
