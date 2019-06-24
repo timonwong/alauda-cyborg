@@ -1,4 +1,4 @@
-module cyborg
+module github.com/alauda/cyborg
 
 go 1.12
 
