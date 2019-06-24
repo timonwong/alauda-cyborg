@@ -6,8 +6,8 @@ import (
 	"sync"
 
 	"k8s.io/client-go/dynamic"
+	"k8s.io/klog"
 
-	"github.com/golang/glog"
 	"github.com/juju/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -260,12 +260,12 @@ func (c *KubeClient) syncGroupVersion(force bool) error {
 			return nil
 		}
 	}
-	glog.Infof("force resync group version info for cluster: %s", c.cluster)
+	klog.V(3).Infof("force resync group version info for cluster: %s", c.cluster)
 	groups, err := c.kc.Discovery().ServerGroups()
 	if err != nil {
 		return err
 	}
-	glog.Infof("resync group version info %+v for cluster: %s", groups, c.cluster)
+	klog.V(5).Infof("resync group version info %+v for cluster: %s", groups, c.cluster)
 	allAPIGroupMap.Lock()
 	allAPIGroupMap.M[c.cluster] = groups
 	allAPIGroupMap.Unlock()
@@ -282,18 +282,18 @@ func (c *KubeClient) syncAPIResourceMap(force bool) error {
 			return nil
 		}
 	}
-	glog.Infof("force resync api resources for cluster: %s", c.cluster)
+	klog.V(3).Infof("force resync api resources for cluster: %s", c.cluster)
 	serverResourceList, err := c.kc.Discovery().ServerResources()
 	if err != nil {
 		return err
 	}
-	glog.Infof("resync api resource info %+v for cluster: %s", serverResourceList, c.cluster)
+	klog.V(5).Infof("resync api resource info %+v for cluster: %s", serverResourceList, c.cluster)
 
 	// set group and version
 	for _, rl := range serverResourceList {
 		gv, err := schema.ParseGroupVersion(rl.GroupVersion)
 		if err != nil {
-			glog.Errorf("parse group version for %s error: %s", rl.GroupVersion, err)
+			klog.Errorf("parse group version for %s error: %s", rl.GroupVersion, err)
 			continue
 		}
 		for idx := range rl.APIResources {
@@ -313,7 +313,7 @@ func (c *KubeClient) ConfigForResource(name string, preferredVersion string) (re
 	newCfg := *c.config
 	gv, err := c.GetGroupVersionByName(name, preferredVersion)
 
-	glog.Infof("Found gv %s for %s", gv.String(), name)
+	klog.V(3).Infof("Found gv %s for %s", gv.String(), name)
 	if err != nil {
 		return newCfg, err
 	}
