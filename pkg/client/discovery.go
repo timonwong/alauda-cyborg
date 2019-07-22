@@ -5,6 +5,7 @@ import (
 	"strings"
 	"sync"
 
+	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/klog"
 
@@ -285,7 +286,15 @@ func (c *KubeClient) syncAPIResourceMap(force bool) error {
 	klog.V(3).Infof("force resync api resources for cluster: %s", c.cluster)
 	serverResourceList, err := c.kc.Discovery().ServerResources()
 	if err != nil {
-		return err
+		// ignore GroupDiscoveryFailedError
+		if !discovery.IsGroupDiscoveryFailedError(err) {
+			return err
+		}
+		// ensure serverResourceList is a secure var
+		if serverResourceList == nil {
+			return err
+		}
+		klog.Warningf("%v", err)
 	}
 	klog.V(5).Infof("resync api resource info %+v for cluster: %s", serverResourceList, c.cluster)
 
