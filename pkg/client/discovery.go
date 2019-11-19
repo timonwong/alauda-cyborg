@@ -2,6 +2,7 @@ package client
 
 import (
 	"fmt"
+	"k8s.io/apimachinery/pkg/runtime"
 	"strings"
 	"sync"
 
@@ -328,7 +329,9 @@ func (c *KubeClient) ConfigForResource(name string, preferredVersion string) (re
 	}
 
 	newCfg.GroupVersion = &gv
-	newCfg.NegotiatedSerializer = serializer.DirectCodecFactory{CodecFactory: scheme.Codecs}
+
+	codec := runtime.NoopEncoder{Decoder: scheme.Codecs.UniversalDecoder()}
+	newCfg.NegotiatedSerializer = serializer.NegotiatedSerializerWrapper(runtime.SerializerInfo{Serializer: codec})
 	switch newCfg.GroupVersion.Group {
 	case "":
 		newCfg.APIPath = "/api"
