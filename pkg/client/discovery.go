@@ -85,6 +85,18 @@ func (c *KubeClient) GetResourceTypeByKind(kind string) (string, error) {
 	return r.Name, nil
 }
 
+// GetResourceTypeByGroupKind gets the name of resource type by the resource Groupkind.
+// eg: Deployment -> deployments
+func (c *KubeClient) GetResourceTypeByGroupKind(gk metav1.GroupKind) (string, error) {
+	r, err := c.GetApiResourceByGroupKind(gk)
+	if err != nil {
+		return "", errors.Trace(
+			ErrorResourceTypeNotFound{message: fmt.Sprintf("resource kind '%s/%s' not found", gk.Group, gk.Kind)},
+		)
+	}
+	return r.Name, nil
+}
+
 func IsSubResource(resource *metav1.APIResource) bool {
 	return strings.Contains(resource.Name, "/")
 }
@@ -102,7 +114,7 @@ func canResourceList(resource metav1.APIResource) bool {
 	return false
 }
 
-// GetApiResourceByKindInsensitive get api resource by kind
+// GetApiResourceByKind get api resource by kind
 func (c *KubeClient) GetApiResourceByKind(kind string) (*metav1.APIResource, error) {
 	resource, err := c.getApiResourceByKind(kind, false)
 	if err != nil {
@@ -112,6 +124,21 @@ func (c *KubeClient) GetApiResourceByKind(kind string) (*metav1.APIResource, err
 				return nil, err
 			}
 			return c.getApiResourceByKind(kind, false)
+		}
+	}
+	return resource, err
+}
+
+// GetApiResourceByGroupKind get api resource by GroupKind
+func (c *KubeClient) GetApiResourceByGroupKind(gk metav1.GroupKind) (*metav1.APIResource, error) {
+	resource, err := c.getApiResourceByGroupKind(gk, false)
+	if err != nil {
+		if IsResourceTypeNotFound(err) {
+			// force resync and retry
+			if err := c.syncAPIResourceMap(true); err != nil {
+				return nil, err
+			}
+			return c.getApiResourceByGroupKind(gk, false)
 		}
 	}
 	return resource, err
@@ -152,6 +179,28 @@ func (c *KubeClient) getApiResourceByKind(kind string, ignoreCase bool) (*metav1
 	}
 	return nil, errors.Trace(ErrorResourceTypeNotFound{
 		message: fmt.Sprintf("find apiResource for kind error: %s %s", c.cluster, kind)})
+}
+
+// getApiResourceByGroupKind gets the APIResource by the resource GroupKind， skip sub resources
+func (c *KubeClient) getApiResourceByGroupKind(gk metav1.GroupKind, ignoreCase bool) (*metav1.APIResource, error) {
+	resources, err := c.GetApiResourceList()
+	if err != nil {
+		return nil, errors.Trace(ErrorResourceTypeNotFound{
+			message: fmt.Sprintf("find apiResource for kind error: %s %s/%s", c.cluster, gk.Group, gk.Kind)})
+	}
+
+	for _, rl := range resources {
+		//TODO: test
+		for _, r := range rl.APIResources {
+			if !IsSubResource(&r) {
+				if (r.Kind == gk.Kind || (ignoreCase && strings.EqualFold(r.Kind, gk.Kind))) && r.Group == gk.Group {
+					return &r, nil
+				}
+			}
+		}
+	}
+	return nil, errors.Trace(ErrorResourceTypeNotFound{
+		message: fmt.Sprintf("find apiResource for kind error: %s %s/%s", c.cluster, gk.Group, gk.Kind)})
 }
 
 // GetApiResourceByName gets APIResource by the resource type name and
