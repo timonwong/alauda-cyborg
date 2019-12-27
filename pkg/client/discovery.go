@@ -2,20 +2,19 @@ package client
 
 import (
 	"fmt"
-	"k8s.io/apimachinery/pkg/runtime"
 	"strings"
 	"sync"
 
-	"k8s.io/client-go/discovery"
-	"k8s.io/client-go/dynamic"
-	"k8s.io/klog"
-
 	"github.com/juju/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
+	"k8s.io/client-go/discovery"
+	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
+	"k8s.io/klog"
 )
 
 type APIGroupMap struct {
@@ -416,6 +415,24 @@ func (c *KubeClient) DynamicClientForResource(resource string, version string) (
 	}
 	gvr := gv.WithResource(resource)
 
+	return c.ic.Resource(gvr), nil
+}
+
+// DynamicClientForResource get dynamic client for resource
+func (c *KubeClient) DynamicClientForGroupKind(gk metav1.GroupKind) (dynamic.NamespaceableResourceInterface, error) {
+	version, err := c.GetVersionByGroup(gk.Group)
+	if err != nil {
+		return nil, err
+	}
+	resource, err := c.GetResourceTypeByGroupKind(gk)
+	if err != nil {
+		return nil, err
+	}
+	gv := schema.GroupVersion{
+		Group:   gk.Group,
+		Version: version,
+	}
+	gvr := gv.WithResource(resource)
 	return c.ic.Resource(gvr), nil
 }
 
