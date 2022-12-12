@@ -333,7 +333,7 @@ func (c *KubeClient) syncAPIResourceMap(force bool) error {
 		}
 	}
 	klog.V(3).Infof("force resync api resources for cluster: %s", c.cluster)
-	serverResourceList, err := c.kc.Discovery().ServerResources()
+	_, serverResourceList, err := c.kc.Discovery().ServerGroupsAndResources()
 	if err != nil {
 		// ignore GroupDiscoveryFailedError
 		if !discovery.IsGroupDiscoveryFailedError(err) {
@@ -349,9 +349,9 @@ func (c *KubeClient) syncAPIResourceMap(force bool) error {
 
 	// set group and version
 	for _, rl := range serverResourceList {
-		gv, err := schema.ParseGroupVersion(rl.GroupVersion)
+		gv, err := schema.ParseGroupVersion(rl.APIVersion)
 		if err != nil {
-			klog.Errorf("parse group version for %s error: %s", rl.GroupVersion, err)
+			klog.Errorf("parse group version for %s error: %s", rl.APIVersion, err)
 			continue
 		}
 		for idx := range rl.APIResources {

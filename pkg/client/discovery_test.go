@@ -1,6 +1,7 @@
 package client
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"reflect"
@@ -87,27 +88,28 @@ func TestIsNamespaceScoped(t *testing.T) {
 }
 
 func TestGetDynamicClient(t *testing.T) {
+	ctx := context.TODO()
 	c, _ := NewKubeClient(getConfig(), "dev")
 	dc, err := c.DynamicClientForResource("services", "")
 	check(t, err)
-	result, err := dc.List(metav1.ListOptions{})
+	result, err := dc.List(ctx, metav1.ListOptions{})
 	check(t, err)
 	t.Logf("total services: %d", len(result.Items))
 
 	ndc := dc.Namespace("default")
-	result, err = ndc.List(metav1.ListOptions{})
+	result, err = ndc.List(ctx, metav1.ListOptions{})
 	check(t, err)
 	t.Logf("services in default ns : %d", len(result.Items))
 
 	dc, err = c.DynamicClientForResource("persistentvolumes", "")
 	check(t, err)
-	result, err = dc.List(metav1.ListOptions{})
+	result, err = dc.List(ctx, metav1.ListOptions{})
 	check(t, err)
 	pvs := len(result.Items)
 	t.Logf("total pv: %d", pvs)
 	// test if set namespace not work
 	ndc = dc.Namespace("default")
-	result, err = ndc.List(metav1.ListOptions{})
+	result, err = ndc.List(ctx, metav1.ListOptions{})
 
 	dc, err = c.ClientForGVK(schema.GroupVersionKind{
 		Group:   "",
@@ -115,7 +117,7 @@ func TestGetDynamicClient(t *testing.T) {
 		Kind:    "PersistentVolume",
 	})
 	check(t, err)
-	result, err = dc.List(metav1.ListOptions{})
+	result, err = dc.List(ctx, metav1.ListOptions{})
 	assert(t, len(result.Items) == pvs, true)
 
 }
