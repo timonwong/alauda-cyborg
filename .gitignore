@@ -12,3 +12,6 @@
 *.out
 .idea/
 coverage.html
+bin/
+testbin/
+*.env

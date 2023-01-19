@@ -3,43 +3,34 @@ package client
 import (
 	"context"
 	"fmt"
-	"os"
 	"reflect"
 	"testing"
 
-	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/client-go/rest"
-
 	"github.com/juju/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
-func getConfig() *rest.Config {
-	return &rest.Config{
-		Host:        os.Getenv("DEV_HOST"),
-		BearerToken: os.Getenv("DEV_TOKEN"),
-		APIPath:     "apis",
-		TLSClientConfig: rest.TLSClientConfig{
-			Insecure: true,
-		},
-	}
-}
-
-func assert(t *testing.T, a interface{}, b interface{}) {
+func assert(t *testing.T, a, b interface{}) {
+	t.Helper()
 	if a != b {
 		t.Fatalf("%s != %s", a, b)
 	}
 }
+
 func check(t *testing.T, err error) {
+	t.Helper()
 	if err != nil {
 		t.Errorf("get error: %+v", err)
 	}
 }
 
 func TestSync(t *testing.T) {
-	c, _ := NewKubeClient(getConfig(), "dev")
-	//t.Logf("APIResource Map: %+v", allAPIResourceMap.M)
-	//t.Logf("GroupVersion Map: %+v", allAPIGroupMap.M)
+	c, err := NewKubeClient(getConfig(), "dev")
+	check(t, err)
+
+	// t.Logf("APIResource Map: %+v", allAPIResourceMap.M)
+	// t.Logf("GroupVersion Map: %+v", allAPIGroupMap.M)
 	res, err := c.GetApiResourceByKind("Deployment")
 	check(t, err)
 	t.Logf("Deployment: %+v", res)
@@ -119,5 +110,4 @@ func TestGetDynamicClient(t *testing.T) {
 	check(t, err)
 	result, err = dc.List(ctx, metav1.ListOptions{})
 	assert(t, len(result.Items) == pvs, true)
-
 }

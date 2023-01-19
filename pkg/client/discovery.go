@@ -163,11 +163,12 @@ func (c *KubeClient) getApiResourceByKind(kind string, ignoreCase bool) (*metav1
 	resources, err := c.GetApiResourceList()
 	if err != nil {
 		return nil, errors.Trace(ErrorResourceTypeNotFound{
-			message: fmt.Sprintf("find apiResource for kind error: %s %s", c.cluster, kind)})
+			message: fmt.Sprintf("find apiResource for kind error: %s %s", c.cluster, kind),
+		})
 	}
 
 	for _, rl := range resources {
-		//TODO: test
+		// TODO: test
 		for _, r := range rl.APIResources {
 			if !IsSubResource(&r) {
 				if r.Kind == kind || (ignoreCase && strings.EqualFold(r.Kind, kind)) {
@@ -177,7 +178,8 @@ func (c *KubeClient) getApiResourceByKind(kind string, ignoreCase bool) (*metav1
 		}
 	}
 	return nil, errors.Trace(ErrorResourceTypeNotFound{
-		message: fmt.Sprintf("find apiResource for kind error: %s %s", c.cluster, kind)})
+		message: fmt.Sprintf("find apiResource for kind error: %s %s", c.cluster, kind),
+	})
 }
 
 // getApiResourceByGroupKind gets the APIResource by the resource GroupKind， skip sub resources
@@ -185,11 +187,12 @@ func (c *KubeClient) getApiResourceByGroupKind(gk metav1.GroupKind, ignoreCase b
 	resources, err := c.GetApiResourceList()
 	if err != nil {
 		return nil, errors.Trace(ErrorResourceTypeNotFound{
-			message: fmt.Sprintf("find apiResource for kind error: %s %s/%s", c.cluster, gk.Group, gk.Kind)})
+			message: fmt.Sprintf("find apiResource for kind error: %s %s/%s", c.cluster, gk.Group, gk.Kind),
+		})
 	}
 
 	for _, rl := range resources {
-		//TODO: test
+		// TODO: test
 		for _, r := range rl.APIResources {
 			if !IsSubResource(&r) {
 				if (r.Kind == gk.Kind || (ignoreCase && strings.EqualFold(r.Kind, gk.Kind))) && r.Group == gk.Group {
@@ -199,13 +202,14 @@ func (c *KubeClient) getApiResourceByGroupKind(gk metav1.GroupKind, ignoreCase b
 		}
 	}
 	return nil, errors.Trace(ErrorResourceTypeNotFound{
-		message: fmt.Sprintf("find apiResource for kind error: %s %s/%s", c.cluster, gk.Group, gk.Kind)})
+		message: fmt.Sprintf("find apiResource for kind error: %s %s/%s", c.cluster, gk.Group, gk.Kind),
+	})
 }
 
 // GetApiResourceByName gets APIResource by the resource type name and
 // the preferred api version. If the preferredVersion not exist, the first
 // available version will be returned.
-func (c *KubeClient) GetApiResourceByName(name string, preferredVersion string) (*metav1.APIResource, error) {
+func (c *KubeClient) GetApiResourceByName(name, preferredVersion string) (*metav1.APIResource, error) {
 	var cans []*metav1.APIResource
 	getFunc := func() error {
 		resources, err := c.GetApiResourceList()
@@ -254,7 +258,6 @@ func (c *KubeClient) GetApiResourceByName(name string, preferredVersion string) 
 	}
 
 	return cans[0], nil
-
 }
 
 // GetVersionByGroup gets the preferred version of a group.
@@ -267,7 +270,6 @@ func (c *KubeClient) GetVersionByGroup(group string) (string, error) {
 			}
 			return c.getVersionByGroup(group)
 		}
-
 	}
 	return version, err
 }
@@ -289,7 +291,7 @@ func (c *KubeClient) getVersionByGroup(group string) (string, error) {
 
 // GetGroupVersionByName gets the group version of a resource by it's type name and
 // the preferred api version.
-func (c *KubeClient) GetGroupVersionByName(name string, preferredVersion string) (schema.GroupVersion, error) {
+func (c *KubeClient) GetGroupVersionByName(name, preferredVersion string) (schema.GroupVersion, error) {
 	apiRes, err := c.GetApiResourceByName(name, preferredVersion)
 	if err != nil {
 		return schema.GroupVersion{}, err
@@ -349,9 +351,9 @@ func (c *KubeClient) syncAPIResourceMap(force bool) error {
 
 	// set group and version
 	for _, rl := range serverResourceList {
-		gv, err := schema.ParseGroupVersion(rl.APIVersion)
+		gv, err := schema.ParseGroupVersion(rl.GroupVersion)
 		if err != nil {
-			klog.Errorf("parse group version for %s error: %s", rl.APIVersion, err)
+			klog.Errorf("parse group version for %s error: %s", rl.GroupVersion, err)
 			continue
 		}
 		for idx := range rl.APIResources {
@@ -367,7 +369,7 @@ func (c *KubeClient) syncAPIResourceMap(force bool) error {
 }
 
 // ConfigForResource generates the REST config of k8s client for the resource type and version
-func (c *KubeClient) ConfigForResource(name string, preferredVersion string) (rest.Config, error) {
+func (c *KubeClient) ConfigForResource(name, preferredVersion string) (rest.Config, error) {
 	newCfg := *c.config
 	gv, err := c.GetGroupVersionByName(name, preferredVersion)
 
@@ -408,7 +410,7 @@ func (c *KubeClient) IsNamespaceScoped(resource string) (bool, error) {
 }
 
 // DynamicClientForResource get dynamic client for resource
-func (c *KubeClient) DynamicClientForResource(resource string, version string) (dynamic.NamespaceableResourceInterface, error) {
+func (c *KubeClient) DynamicClientForResource(resource, version string) (dynamic.NamespaceableResourceInterface, error) {
 	gv, err := c.GetGroupVersionByName(resource, version)
 	if err != nil {
 		return nil, err
